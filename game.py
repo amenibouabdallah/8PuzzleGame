@@ -4,6 +4,8 @@ import random
 from queue import Queue
 import heapq
 import time
+import heapq
+
 
 # Configuration du jeu 8-puzzle
 goal_state = [0, 1, 2, 3, 4, 5, 6, 7, 8]  # État final du jeu (case vide représentée par 0)
@@ -118,9 +120,9 @@ class PuzzleGame(tk.Tk):
         self.solve_astar_button = tk.Button(self.actions_frame, text="Solve using A* algorithm", font=self.poppins_font, bg="#fd7e14", fg="#ffffff", command=self.solve_puzzle_astar)
         self.solve_astar_button.grid(row=0, column=3, padx=10, pady=10)
 
-        self.solve_bfs_button = tk.Button(self.actions_frame, text="Solve using BFS algorithm", font=self.poppins_font, bg="#28a745", fg="#ffffff", command=self.solve_puzzle_bfs)
-        self.solve_bfs_button.grid(row=0, column=4, padx=10, pady=10)
 
+        self.solve_bestfs_button = tk.Button(self.actions_frame, text="Solve using BestFS algorithm", font=self.poppins_font, bg="#6f42c1", fg="#ffffff", command=self.solve_puzzle_bestfs)
+        self.solve_bestfs_button.grid(row=0, column=5, padx=10, pady=10)
 
         # Initialize variables for tracking moves and time
         self.moves_count = 0
@@ -184,7 +186,6 @@ class PuzzleGame(tk.Tk):
         self.solve_manual_button.config(state=tk.DISABLED)
         self.shuffle_button.config(state=tk.DISABLED)
         self.solve_astar_button.config(state=tk.DISABLED)
-        self.solve_bfs_button.config(state=tk.DISABLED)
         
         # Remove the existing Play Again button if it exists
         if self.play_again_button:
@@ -211,7 +212,6 @@ class PuzzleGame(tk.Tk):
         self.solve_manual_button.config(state=tk.NORMAL)
         self.shuffle_button.config(state=tk.NORMAL)
         self.solve_astar_button.config(state=tk.NORMAL)
-        self.solve_bfs_button.config(state=tk.NORMAL)
 
     # Mélanger le jeu
     def shuffle_game(self):
@@ -270,9 +270,14 @@ class PuzzleGame(tk.Tk):
         elif event.keysym == "Right" and empty_col > 0:
             self.on_tile_click(empty_row, empty_col - 1)
 
-    # Implémentation de l'algorithme de résolution manuelle (juste un exemple)
+    # Implémentation de l'algorithme de résolution manuelle 
     def solve_manual(self):
         messagebox.showinfo("Manual Solver", "Please use the arrow keys to solve the puzzle manually.")
+    # Implement Best-First Search method
+    def solve_puzzle_bestfs(self):
+        start_state = [self.grid[i][j] for i in range(grid_size) for j in range(grid_size)]
+        solution = self.bestfs_search(start_state)
+        self.display_solution(solution)
 
     # Implémentation de l'algorithme A* pour résoudre le puzzle
     def solve_puzzle_astar(self):
@@ -280,11 +285,7 @@ class PuzzleGame(tk.Tk):
         solution = self.a_star_search(start_state)
         self.display_solution(solution)
 
-    # Implémentation de l'algorithme BFS pour résoudre le puzzle
-    def solve_puzzle_bfs(self):
-        start_state = [self.grid[i][j] for i in range(grid_size) for j in range(grid_size)]
-        solution = self.bfs_search(start_state)
-        self.display_solution(solution)
+   
 
 
     # Fonction pour afficher la solution trouvée
@@ -301,7 +302,7 @@ class PuzzleGame(tk.Tk):
 
         self.show_victory_message()
         self.moves_used_label.config(text=f"Moves used: {solution['moves']}",wraplength=561)
-
+    
     # Fonction de recherche A* pour résoudre le puzzle
     def a_star_search(self, start_state):
         def heuristic(state):
@@ -340,8 +341,13 @@ class PuzzleGame(tk.Tk):
 
         return None
 
-    # Fonction de recherche BFS pour résoudre le puzzle
-    def bfs_search(self, start_state):
+   
+    # Function for Best-First Search to solve the puzzle
+    def bestfs_search(self, start_state):
+        def heuristic(state):
+            return sum(abs((val - 1) % grid_size - j) + abs((val - 1) // grid_size - i)
+                       for i, row in enumerate(state) for j, val in enumerate(row) if val)
+
         def get_neighbors(state):
             empty_row, empty_col = next((i, j) for i, row in enumerate(state) for j, val in enumerate(row) if val == 0)
             neighbors = []
@@ -356,21 +362,21 @@ class PuzzleGame(tk.Tk):
         start = state_to_grid_indices(start_state)
         goal = state_to_grid_indices(goal_state)
 
-        queue = Queue()
-        queue.put((start, []))
-        visited = set()
+        open_set = []
+        heapq.heappush(open_set, (heuristic(start), start, []))
+        closed_set = set()
 
-        while not queue.empty():
-            current_state, path = queue.get()
+        while open_set:
+            _, current_state, path = heapq.heappop(open_set)
             if current_state == goal:
                 return {'moves': path}
 
-            visited.add(tuple(tuple(row) for row in current_state))
+            closed_set.add(tuple(tuple(row) for row in current_state))
 
             for neighbor, move in get_neighbors(current_state):
                 neighbor_tuple = tuple(tuple(row) for row in neighbor)
-                if neighbor_tuple not in visited:
-                    queue.put((neighbor, path + [move]))
+                if neighbor_tuple not in closed_set:
+                    heapq.heappush(open_set, (heuristic(neighbor), neighbor, path + [move]))
 
         return None
 
